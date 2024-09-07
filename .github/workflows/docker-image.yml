@@ -6,9 +6,12 @@ on:
       - main
 
 jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "building and testing the app ..."
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
