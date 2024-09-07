@@ -27,7 +27,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/product-service-v1:latest
+          tags: jpaezr/product-service-v1:latest
           
       - name: Log out from Docker Hub
         run: docker logout
