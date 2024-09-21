@@ -57,5 +57,12 @@ jobs:
         run: |
           aws eks --region us-east-1 update-kubeconfig --name product-service-cluster
 
+      # Paso 8: Configurar el acceso a EKS (kubeconfig)
+  
+      - name: Deploy to EKS using kubectl
+        run: |
+          kubectl apply -f ./manifests/deployment.yaml
+          kubectl apply -f ./manifests/service.yaml
+
       - name: Log out from Docker Hub
         run: docker logout
