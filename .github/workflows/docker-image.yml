@@ -57,15 +57,5 @@ jobs:
         run: |
           aws eks --region us-east-1 update-kubeconfig --name product-service-cluster
 
-      # Paso 9: Desplegar en EKS usando Helm
-      - name: Deploy to EKS using Helm
-        run: |
-          helm upgrade --install product-service ./charts/product-service \
-            --namespace default \
-            --set image.repository=jpaezr/product-service-v1 \
-            --set image.tag=latest \
-            --set replicaCount=2
-
-
       - name: Log out from Docker Hub
         run: docker logout
