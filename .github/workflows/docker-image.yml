@@ -55,7 +55,7 @@ jobs:
       # Paso 8: Configurar el acceso a EKS (kubeconfig)
       - name: Configure kubeconfig for EKS
         run: |
-          aws eks --region us-east-1 update-kubeconfig --name product-service-cluster
+          aws eks --region us-east-1 update-kubeconfig --name education-eks-nVLFiTiT
 
       # Paso 9: Desplegar en EKS usando Helm
       - name: Deploy to EKS using Helm
