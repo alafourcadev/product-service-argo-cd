@@ -62,8 +62,8 @@ jobs:
   
       - name: Deploy to EKS using kubectl
         run: |
-          kubectl apply -f ./deployment.yaml
-          kubectl apply -f ./service.yaml
+          kubectl apply -f ./manifests/deployment.yaml
+          kubectl apply -f ./manifests/service.yaml
 
       - name: Log out from Docker Hub
         run: docker logout
