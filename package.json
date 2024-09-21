@@ -1,5 +1,5 @@
 {
-  "name": "product-service",
+  "name": "product-service-001",
   "version": "1.0.0",
   "scripts": {
     "start": "node src/app.js",
