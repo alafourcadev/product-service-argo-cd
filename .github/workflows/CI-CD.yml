@@ -1,0 +1,70 @@
+name: GitOPSD Pipeline for AWS EKS and Docker Image LiteThinking
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Paso 1: Checkout del código fuente
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Paso 2: Iniciar sesión en Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Paso 3: Configurar Docker Buildx para compilaciones más avanzadas
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Paso 4: Construir y subir la imagen de Docker a Docker Hub
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: jpaezr/product-service-v1:latest
+
+      # Paso 5: Cerrar sesión de Docker Hub
+      - name: Log out from Docker Hub
+        run: docker logout
+
+      # Paso 6: Configurar credenciales de AWS
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+ # Paso 7: Instalar kubectl desde la URL oficial correcta
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin
+          kubectl version --client
+
+      # Paso 8: Configurar el acceso a EKS (kubeconfig)
+      - name: Configure kubeconfig for EKS
+        run: |
+          aws eks --region us-east-1 update-kubeconfig --name product-service-cluster
+
+      # Paso 8: Configurar el acceso a EKS (kubeconfig)
+  
+      - name: Deploy to EKS using kubectl
+        run: |
+          kubectl apply -f ./manifests/configmap.yaml
+          kubectl apply -f ./manifests/deployment.yaml
+          kubectl apply -f ./manifests/service.yaml
+
+      - name: Log out from Docker Hub
+        run: docker logout

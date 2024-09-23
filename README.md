@@ -3,7 +3,7 @@
 Construye la imagen Docker:
 
 ```
-docker build -t product-service .
+docker build -t product-service-v1 .
 ```
 Ejecuta el contenedor Docker:
 ```
@@ -22,6 +22,14 @@ Body: JSON (raw)
 docker build . -t 192.168.10.26:32000/product-service:latest
 docker tag product-service 192.168.10.26:32000/product-service:
 docker push 192.168.10.26:32000/product-service:latest
+
+docker build . -t jpaezr/product-service-v1:latest
+docker tag product-service-v1 jpaezr/product-service-v1
+docker push jpaezr/product-service-v1:latest
+
+docker build . -t acrlitethinking001.azurecr.io:latest
+docker tag product-service-v1 acrlitethinking001.azurecr.io/product-service-v1
+docker push acrlitethinking001.azurecr.io/product-service-v1:latest
 
 http://192.168.10.26:32000/v2/_catalog
 
