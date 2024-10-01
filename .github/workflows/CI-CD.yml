@@ -56,7 +56,7 @@ jobs:
       # Paso 8: Configurar el acceso a EKS (kubeconfig)
       - name: Configure kubeconfig for EKS
         run: |
-          aws eks --region us-east-2 update-kubeconfig --name product-service-cluster
+          aws eks --region us-east-2 update-kubeconfig --name lts-pruebas-001
 
       # Paso 8: Configurar el acceso a EKS (kubeconfig)
   
