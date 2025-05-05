@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: product-service-project
+  namespace: argocd
+spec:
+  description: Product Service Project
+  sourceRepos:
+  - 'https://github.com/jouncato/product-service-argo-cd.git'
+  destinations:
+  - namespace: default
+    server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+  - group: ''
+    kind: Namespace
+  - group: ''
+    kind: ConfigMap
+  - group: ''
+    kind: Secret
+  - group: ''
+    kind: Service
+  - group: apps
+    kind: Deployment
+  - group: apps
+    kind: StatefulSet
+  - group: networking.k8s.io
+    kind: Ingress
+  namespaceResourceWhitelist:
+  - group: ''
+    kind: ConfigMap
+  - group: ''
+    kind: Secret
+  - group: ''
+    kind: Service
+  - group: apps
+    kind: Deployment
+  - group: apps
+    kind: StatefulSet
+  - group: networking.k8s.io
+    kind: Ingress
+  roles:
+  - name: admin
+    policies:
+    - p, proj:product-service-project:admin, applications, *, product-service-project/*, allow
+    groups:
+    - product-service-admins

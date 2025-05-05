@@ -1,0 +1,170 @@
+name: Complete CI/CD Pipeline for Product Service
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOCKER_USERNAME: jouncato
+  IMAGE_NAME: product-service-v1
+  KUBERNETES_VERSION: 1.28.0
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run security audit
+        run: npm audit --production
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+  update-manifests:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Update image tag
+        run: |
+          cd k8s
+          kustomize edit set image ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add k8s/kustomization.yaml
+          git commit -m "Update image tag to ${{ github.sha }}"
+          git push
+
+  deploy-to-staging:
+    needs: update-manifests
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: v${{ env.KUBERNETES_VERSION }}
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig --name staging-cluster --region us-east-2
+
+      - name: Deploy to staging
+        run: |
+          kubectl apply -k k8s/overlays/staging
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/product-service -n staging
+          kubectl get pods -n staging
+
+  integration-tests:
+    needs: deploy-to-staging
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run integration tests
+        run: |
+          # Add your integration test commands here
+          npm run test:integration
+
+
+    needs: [deploy-to-production]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Notify Slack
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: 'deployments'
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_MESSAGE: 'Deployment status: ${{ job.status }}'
+          SLACK_TITLE: 'Product Service Deployment'
+          SLACK_USERNAME: 'GitHub Actions'
