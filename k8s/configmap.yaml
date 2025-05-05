@@ -2,13 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: product-service-config
-  namespace: default
-  labels:
-    app: product-service
 data:
-  NODE_ENV: "development"
   DB_NAME: "products"
-  DB_USER: "postgres"
-  DB_HOST: "postgres-service"
+  DB_HOST: "localhost"
   DB_PORT: "5432"
-  PORT: "3000"
