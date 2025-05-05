@@ -4,5 +4,5 @@ metadata:
   name: product-service-config
 data:
   DB_NAME: "products"
-  DB_HOST: "localhost"
+  DB_HOST: "192.168.10.11"
   DB_PORT: "5432"
