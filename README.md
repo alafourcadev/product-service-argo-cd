@@ -1,42 +1,43 @@
-# REST Product-Service
-```
-Construye la imagen Docker:
+# Product Service - REST API
 
-```
-docker build -t product-service-v1 .
-```
-Ejecuta el contenedor Docker:
-```
-docker run -d --name product-service -p 3000:3000 --env-file .env product-service
-```
+Servicio REST desarrollado en Node.js con arquitectura hexagonal, desplegable con Argo CD en Kubernetes.
 
-## Uso de la API
+## 🚀 Características
 
-1. Test Health
+- API REST para gestión de productos
+- Arquitectura hexagonal
+- Node.js 22 + Express
+- PostgreSQL 16
+- Docker multi-stage build
+- Despliegue automatizado con ArgoCD
+- CI/CD con GitHub Actions
 
-URL: http://192.168.10.26:3000/api/health
-Método: get
-Body: JSON (raw)
+## 📋 Prerrequisitos
 
+- Node.js 22+
+- Docker
+- Kubernetes cluster
+- ArgoCD instalado
+- GitHub Actions configurado
 
-docker build . -t 192.168.10.26:32000/product-service:latest
-docker tag product-service 192.168.10.26:32000/product-service:
-docker push 192.168.10.26:32000/product-service:latest
+## 🛠️ Desarrollo Local
 
-docker build . -t jpaezr/product-service-v1:latest
-docker tag product-service-v1 jpaezr/product-service-v1
-docker push jpaezr/product-service-v1:latest
+```bash
+# Clonar repositorio
+git clone https://github.com/jouncato/product-service-argo-cd.git
+cd product-service-argo-cd
 
-docker build . -t acrlitethinking001.azurecr.io:latest
-docker tag product-service-v1 acrlitethinking001.azurecr.io/product-service-v1
-docker push acrlitethinking001.azurecr.io/product-service-v1:latest
+# Instalar dependencias
+npm install
 
-http://192.168.10.26:32000/v2/_catalog
+# Ejecutar en modo desarrollo
+npm run dev
 
+# Ejecutar tests
+npm test
 
+# Construir Docker image
+docker build -t product-service .
 
-
-(Get-ECRLoginCommand).Password | docker login --username AWS --password-stdin 499275931604.dkr.ecr.us-east-2.amazonaws.com
-docker build -t lts446401/product-service .
-docker tag lts446401/product-service:latest 499275931604.dkr.ecr.us-east-2.amazonaws.com/lts446401/product-service:latest
-docker push 499275931604.dkr.ecr.us-east-2.amazonaws.com/lts446401/product-service:latest
+# Correr con Docker Compose
+docker-compose up

@@ -1,16 +1,45 @@
-# Usa la imagen oficial de Node.js 20 como base
-FROM node:20-alpine3.20
-# Establece el directorio de trabajo en /app
+# Multi-stage build for smaller image size
+FROM node:23-alpine3.21 AS builder
+
 WORKDIR /app
-# Copia el package.json y el package-lock.json al contenedor
+
+# Copy package files
 COPY package*.json ./
-# Instala las dependencias del proyecto
-RUN npm install
-# Copia el resto del código de la aplicación al contenedor
+
+# Install dependencies
+RUN npm install --only=production
+
+# Copy application code
 COPY . .
-# Expone el puerto que utilizará la aplicación
+
+# Production stage
+FROM node:23-alpine3.21
+
+# Add non-root user for security
+RUN addgroup -g 1001 -S app && adduser -S app -u 1001
+
+WORKDIR /app
+
+# Copy from builder stage
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app .
+
+# Change ownership to non-root user
+RUN chown -R app:app /app
+
+# Switch to non-root user
+USER app
+
+# Expose port
 EXPOSE 3000
-# Establece las variables de entorno necesarias
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
+# Define environment variables
 ENV NODE_ENV=production
-# Define el comando por defecto para ejecutar la aplicación
+ENV PORT=3000
+
+# Start the application
 CMD ["npm", "start"]
