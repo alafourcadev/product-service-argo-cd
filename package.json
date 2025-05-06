@@ -1,5 +1,5 @@
 {
-  "name": "product-service",
+  "name": "product-service-001",
   "version": "1.0.0",
   "description": "Product management service with PostgreSQL and ArgoCD integration",
   "main": "src/app.js",
