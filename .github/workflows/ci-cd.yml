@@ -1,16 +1,44 @@
-name: Build and Push Docker Image
+name: CI/CD Pipeline - Product Service
 
 on:
   push:
+    branches: [ main ]
+  pull_request:
     branches: [ main ]
 
 env:
   IMAGE_NAME: product-service-argo-cd
 
 jobs:
-  build-and-push:
+  test:
     runs-on: ubuntu-latest
-    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run linting
+        run: npm run lint
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -32,12 +60,24 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new
 
@@ -45,3 +85,66 @@ jobs:
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+  update-manifests:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Update image tag in deployment
+        run: |
+          # Extraer el tag con SHA
+          NEW_TAG="${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:main-${{ github.sha }}"
+          echo "Updating image tag to: $NEW_TAG"
+          
+          # Actualizar el deployment.yaml
+          sed -i "s|image: .*/product-service-argo-cd:.*|image: $NEW_TAG|g" k8s/deployment.yaml
+          
+          # Verificar el cambio
+          echo "New deployment.yaml content:"
+          cat k8s/deployment.yaml | grep "image:"
+
+      - name: Commit and push changes
+        run: |
+          git add k8s/deployment.yaml
+          
+          # Solo commitear si hay cambios
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "🚀 Update image tag to main-${{ github.sha }} [skip ci]"
+            git push origin main
+            echo "✅ Changes pushed successfully"
+          fi
+
+  notify:
+    needs: [test, build-and-push, update-manifests]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Slack Notification
+        if: env.SLACK_WEBHOOK != ''
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          text: |
+            Deployment Status: ${{ job.status }}
+            Image: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:main-${{ github.sha }}
+            Commit: ${{ github.event.head_commit.message }}
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
